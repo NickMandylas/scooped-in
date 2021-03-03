@@ -1,96 +1,165 @@
 import "dotenv/config";
-import { IgApiClient } from "instagram-private-api";
-import { writeFile, readFile, exists } from "fs";
-import { promisify } from "util";
+import {
+  AccountRepositoryLoginResponseLogged_in_user,
+  IgApiClient,
+  IgLoginTwoFactorRequiredError,
+} from "instagram-private-api";
+import { PrismaClient, Profile } from "@prisma/client";
+import axios from "axios";
+import Bluebird from "bluebird";
+import inquirer = require("inquirer");
 
-const writeFileAsync = promisify(writeFile);
-const readFileAsync = promisify(readFile);
-const existsAsync = promisify(exists);
+const prisma = new PrismaClient();
 
-export default class Instagram {
+// (async () => {
+//   const ig = new Instagram();
+//   await ig.login("disposable.nick");
+
+//   const close_friend_username = "nickmandylas";
+//   const friend_id = await ig.client.user.getIdByUsername(close_friend_username);
+
+//   await ig.client.friendship
+//     .setBesties({ add: [friend_id] })
+//     .then((res) => console.log(res));
+
+//   await prisma.$disconnect();
+// })();
+
+class Instagram {
+  public uuid: string | null;
+  public username: string;
   public client: IgApiClient;
 
-  private readState = async (ig: IgApiClient): Promise<boolean> => {
-    if (!(await existsAsync("state.json"))) return false;
-    // normal reading of state for the instagram-api
-    const { cookies, state, fbnsAuth } = JSON.parse(
-      await readFileAsync("state.json", { encoding: "utf8" }),
-    );
-    ig.state.deviceString = state.deviceString;
-    ig.state.deviceId = state.deviceId;
-    ig.state.uuid = state.uuid;
-    ig.state.phoneId = state.phoneId;
-    ig.state.adid = state.adid;
-    ig.state.build = state.build;
-    await ig.state.deserializeCookieJar(cookies);
-
-    try {
-      process.nextTick(async () => await ig.simulate.postLoginFlow());
-    } catch (e) {
-      console.log(e);
-    }
-
-    return true;
-  };
-
-  private saveState = async (ig: IgApiClient): Promise<void> => {
-    const cookies = await ig.state.serializeCookieJar();
-    const state = {
-      deviceString: ig.state.deviceString,
-      deviceId: ig.state.deviceId,
-      uuid: ig.state.uuid,
-      phoneId: ig.state.phoneId,
-      adid: ig.state.adid,
-      build: ig.state.build,
-    };
-
-    return writeFileAsync(
-      "state.json",
-      JSON.stringify({
-        cookies: JSON.stringify(cookies),
-        state,
-      }),
-      { encoding: "utf8" },
-    );
-  };
-
-  private authenticate = async (ig: IgApiClient): Promise<void> => {
-    ig.state.generateDevice(process.env.INSTAGRAM_USERNAME);
-
-    ig.request.end$.subscribe(() => this.saveState(ig));
-
-    await ig.account.login(
-      process.env.INSTAGRAM_USERNAME,
-      process.env.INSTAGRAM_PASSWORD,
-    );
-
-    try {
-      process.nextTick(async () => await ig.simulate.postLoginFlow());
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  public login = async (): Promise<void> => {
+  constructor(username: string) {
     this.client = new IgApiClient();
+    this.username = username;
+    this.uuid = null;
+  }
 
-    const saved_state = await this.readState(this.client);
-    console.log(saved_state);
-
-    if (!saved_state) {
-      await this.authenticate(this.client);
+  public getAccountPk = async (accountName: string): Promise<string | null> => {
+    try {
+      const res = await axios
+        .get(`https://www.instagram.com/${accountName}/?__a=1`)
+        .then((response) => response.data)
+        .then((data) => {
+          return data.graphql.user.id;
+        });
+      return res;
+    } catch (err) {
+      console.log({
+        code: err.response.status,
+        reason: err.response.statusText,
+        username: accountName,
+      });
+      return null;
     }
+  };
+
+  private getProfile = async (pk: string): Promise<Profile | null> => {
+    return await prisma.profile.findUnique({
+      where: { publicId: pk },
+    });
   };
 }
 
+const getAccountPk = async (accountName: string): Promise<string | null> => {
+  try {
+    const res = await axios
+      .get(`https://www.instagram.com/${accountName}/?__a=1`)
+      .then((response) => response.data)
+      .then((data) => {
+        return data.graphql.user.id;
+      });
+    return res;
+  } catch (err) {
+    console.log({
+      code: err.response.status,
+      reason: err.response.statusText,
+      username: accountName,
+    });
+    return null;
+  }
+};
+
+const getProfile = async (pk: string): Promise<Profile | null> => {
+  return await prisma.profile.findUnique({
+    where: { publicId: pk },
+  });
+};
+
+const authenticate = async (
+  ig: IgApiClient,
+): Promise<void | AccountRepositoryLoginResponseLogged_in_user> => {
+  ig.state.generateDevice(process.env.INSTAGRAM_USERNAME!);
+
+  ig.request.end$.subscribe(() => saveState(ig));
+
+  return Bluebird.try(() =>
+    ig.account.login(
+      process.env.INSTAGRAM_USERNAME!,
+      process.env.INSTAGRAM_PASSWORD!,
+    ),
+  )
+    .catch(IgLoginTwoFactorRequiredError, async (err) => {
+      const {
+        username,
+        totp_two_factor_on,
+        two_factor_identifier,
+      } = err.response.body.two_factor_info;
+      const verificationMethod = totp_two_factor_on ? "0" : "1"; // default to 1 for SMS
+      const { code } = await inquirer.prompt([
+        {
+          type: "input",
+          name: "code",
+          message: `Enter code received via ${
+            verificationMethod === "1" ? "SMS" : "TOTP"
+          }`,
+        },
+      ]);
+      // Finishing the login process
+      return ig.account.twoFactorLogin({
+        username,
+        verificationCode: code,
+        twoFactorIdentifier: two_factor_identifier,
+        verificationMethod,
+        trustThisDevice: "1",
+      });
+    })
+    .catch((e) =>
+      console.error(
+        "An error occurred while processing two factor auth",
+        e,
+        e.stack,
+      ),
+    );
+};
+
+const saveState = async (ig: IgApiClient): Promise<void> => {
+  const cookies = await ig.state.serializeCookieJar();
+  const device = {
+    deviceString: ig.state.deviceString,
+    deviceId: ig.state.deviceId,
+    uuid: ig.state.uuid,
+    phoneId: ig.state.phoneId,
+    adid: ig.state.adid,
+    build: ig.state.build,
+  };
+
+  const state = JSON.stringify({
+    cookies: JSON.stringify(cookies),
+    device,
+  });
+};
+
 (async () => {
-  const ig = new Instagram();
-  await ig.login();
+  const pk = await getAccountPk("disposable.nick");
+  if (pk) {
+    const profile = await getProfile(pk);
 
-  const close_friend_username = "nickmandylas";
-  const friend_id = await ig.client.user.getIdByUsername(close_friend_username);
-
-  await ig.client.friendship
-    .setBesties({ add: [friend_id] })
-    .then((res) => console.log(res));
+    if (!profile) {
+      const client = new IgApiClient();
+      const user = await authenticate(client);
+      console.log(user);
+    }
+  }
 })();
