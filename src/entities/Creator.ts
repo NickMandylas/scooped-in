@@ -2,12 +2,14 @@ import {
   Collection,
   Entity,
   OneToMany,
+  OneToOne,
   PrimaryKey,
   PrimaryKeyType,
   Property,
 } from "@mikro-orm/core";
 import { v4 } from "uuid";
 import { Payment } from "./Payment";
+import { Profile } from "./Profile";
 import { Subscription } from "./Subscription";
 
 @Entity()
@@ -41,6 +43,9 @@ export class Creator {
 
   @Property({ onUpdate: () => new Date(), type: "date" })
   updatedAt = new Date();
+
+  @OneToOne({ nullable: true })
+  profile: Profile;
 
   @OneToMany(() => Subscription, (subscription) => subscription.creator)
   subscriptions = new Collection<Subscription>(this);

@@ -1,7 +1,7 @@
 import "dotenv/config";
-import { MikroORM } from "@mikro-orm/core";
 import path from "path";
-import { Redis, Database, Constants } from "utils";
+import { MikroORM } from "@mikro-orm/core";
+import { __prod__ } from "./constants";
 
 export default {
   migrations: {
@@ -10,18 +10,14 @@ export default {
     tableName: "migrations",
     transactional: true,
   },
-  ...Database.Profiles.connect(),
-  tsNode: Constants.__prod__ ? false : true,
+  user: "postgres",
+  password: "postgres",
+  dbName: "scoopedin",
+  host: "localhost",
+  port: 5432,
+  tsNode: !__prod__,
   entities: ["./dist/entities/**/*.js"],
   entitiesTs: ["./src/entities/**/*.ts"],
   type: "postgresql",
-  debug: Constants.__dev__,
-  resultCache: {
-    adapter: Database.RedisCacheAdapter,
-    options: { expiration: 1000, client: Redis() },
-  },
-  cache: {
-    adapter: Database.RedisCacheAdapter,
-    options: { client: Redis() },
-  },
+  debug: !__prod__,
 } as Parameters<typeof MikroORM.init>[0];

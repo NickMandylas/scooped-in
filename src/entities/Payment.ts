@@ -14,10 +14,10 @@ export class Payment {
   @PrimaryKey({ type: "uuid" })
   id: string = v4();
 
-  @ManyToOne()
+  @ManyToOne(() => Creator)
   creator: Creator;
 
-  @ManyToOne()
+  @ManyToOne(() => Watcher)
   watcher: Watcher;
 
   @Property({ type: "text" })

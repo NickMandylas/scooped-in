@@ -2,13 +2,18 @@ import {
   Entity,
   JsonType,
   OneToOne,
+  PrimaryKey,
   PrimaryKeyType,
   Property,
 } from "@mikro-orm/core";
+import { Creator } from "./Creator";
 
 @Entity()
-export class Creator {
-  @OneToOne({ primary: true })
+export class Profile {
+  @PrimaryKey({ type: "uuid", persist: false })
+  creatorId: string;
+
+  @OneToOne({ entity: () => Creator, orphanRemoval: true })
   creator: Creator;
 
   @Property({ type: "text", unique: true })
