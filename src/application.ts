@@ -41,7 +41,9 @@ export default class Application {
    */
   public init = async (): Promise<void> => {
     this.host = Fastify.fastify({
-      logger: !__prod__,
+      logger: {
+        prettyPrint: true,
+      },
       trustProxy: __prod__ ? 1 : 0,
     });
 
