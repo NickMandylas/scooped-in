@@ -3,7 +3,6 @@ import { __prod__ } from "../constants";
 import { Creator } from "entities";
 import { FastifyInstance } from "fastify";
 import { app } from "..";
-import { Instagram } from "instagram";
 
 export default function (fastify: FastifyInstance, _: any, next: any): void {
   fastify.post<{
@@ -99,7 +98,8 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
         const valid = await argon2.verify(creator.password, password);
 
         if (valid && creator.confirmed) {
-          reply.status(200).send(creator);
+          request.session.creatorId = creator.id;
+          reply.send({ hello: "world" });
           return;
         }
       }
@@ -111,31 +111,29 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
     },
   );
 
-  fastify.post<{ Body: { username: string; password: string } }>(
-    "/profile/link",
-    {
-      schema: {
-        body: {
-          type: "object",
-          properties: {
-            username: { type: "string" },
-            password: { type: "string" },
-          },
-        },
-      },
-    },
+  fastify.get(
+    "/creator",
+    { preHandler: [fastify.creatorAuth] },
     async (request, reply) => {
-      const { username } = request.body;
+      const em = app.orm.em;
+      const creator = await em.findOne(Creator, {
+        id: request.userId,
+      });
 
-      const client = new Instagram(username);
-      const valid = await client.getAccountPk();
-
-      if (valid) {
-        reply.status(200).send({ valid: true });
+      if (creator) {
+        reply.status(200).send({
+          id: creator.id,
+          firstName: creator.firstName,
+          lastName: creator.lastName,
+          avatar: creator.avatar,
+        });
         return;
       }
 
-      reply.status(400).send({ valid: false });
+      reply.status(404).send({
+        field: "creator",
+        message: "Creator associated with account id, couldn't be found",
+      });
     },
   );
 

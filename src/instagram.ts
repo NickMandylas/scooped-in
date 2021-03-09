@@ -46,12 +46,12 @@ export class Instagram {
     }
   };
 
-  private getProfileByPk = async (pk: string): Promise<Profile | null> => {
+  public getProfileByPk = async (pk: string): Promise<Profile | null> => {
     const orm = app.orm;
     return await orm.em.findOne(Profile, { uuid: pk });
   };
 
-  private getProfileByCreator = async (
+  public getProfileByCreator = async (
     creatorId: string,
   ): Promise<Profile | null> => {
     const orm = app.orm;
@@ -75,7 +75,7 @@ export class Instagram {
     };
   };
 
-  private saveSession = async () => {
+  public saveSession = async () => {
     const orm = app.orm;
     const profile = await orm.em.findOne(Profile, { uuid: this.uuid });
 
@@ -86,13 +86,13 @@ export class Instagram {
     }
   };
 
-  private getSession = async (): Promise<Profile | null> => {
-    const orm = app.orm;
-    const profile = await orm.em.findOne(Profile, { uuid: this.uuid });
-    return profile;
-  };
+  // private getSession = async (): Promise<Profile | null> => {
+  //   const orm = app.orm;
+  //   const profile = await orm.em.findOne(Profile, { uuid: this.uuid });
+  //   return profile;
+  // };
 
-  private linkAccount = async (creatorId: string): Promise<boolean> => {
+  public linkAccount = async (creatorId: string): Promise<boolean> => {
     const orm = app.orm;
     const creator = await orm.em.findOne(Creator, { id: creatorId });
 
@@ -114,7 +114,7 @@ export class Instagram {
   };
 
   // TODO - Test if this works, changed 2FA authentication flow.
-  public twoFactorVerify = async (creatorId: string, token: string) => {
+  public twoFactorVerify = async (token: string) => {
     const saved = await redis().get(`instagram-two-factor:${this.uuid}`);
 
     if (saved) {
@@ -136,37 +136,24 @@ export class Instagram {
           trustThisDevice: "1",
         })
         .then(async () => {
-          const linked = await this.linkAccount(creatorId);
-
-          if (linked) {
-            return { status: "linked" };
-          }
-
-          return { status: "linkError" };
+          return { status: "authenticated" };
         });
     }
 
-    return { status: "linkError" };
+    return { status: "twoFactorError" };
   };
 
-  public authenticate = async (creatorId: string, password: string) => {
+  public authenticate = async (password: string) => {
     const accountInUse = this.getProfileByPk(this.uuid!);
 
     if (!accountInUse) {
       this.client.state.generateDevice(this.username);
-      this.client.request.end$.subscribe(() => this.saveSession());
 
       return Bluebird.try(() =>
         this.client.account.login(this.username, password),
       )
         .then(async () => {
-          const linked = await this.linkAccount(creatorId);
-
-          if (linked) {
-            return { status: "linked" };
-          }
-
-          return { status: "linkError" };
+          return { status: "authenticated" };
         })
         .catch(IgLoginTwoFactorRequiredError, (err) => {
           const twoFactor = JSON.stringify({

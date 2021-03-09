@@ -1,12 +1,23 @@
-import * as Fastify from "fastify";
 import ormConfig from "./orm.config";
 import { Connection, IDatabaseDriver, MikroORM } from "@mikro-orm/core";
 import { IncomingMessage, Server, ServerResponse } from "http";
 import { console_prefix, __prod__ } from "./constants";
+import fastifyCookie from "fastify-cookie";
+import fastifyCors from "fastify-cors";
+import fastifySession from "fastify-session";
+import connectRedis from "connect-redis";
+import { RedisClient } from "redis";
+import redis from "utils/redis";
+import {
+  fastify,
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+} from "fastify";
 
 export default class Application {
   public orm: MikroORM<IDatabaseDriver<Connection>>;
-  public host: Fastify.FastifyInstance<Server, IncomingMessage, ServerResponse>;
+  public host: FastifyInstance<Server, IncomingMessage, ServerResponse>;
 
   /*
    *
@@ -25,7 +36,7 @@ export default class Application {
       }
     } catch (error) {
       console.log(
-        `${console_prefix} ❌ ERROR – Unable to connect to database!`,
+        `${console_prefix} ERROR – Unable to connect to database!`,
         error,
       );
       throw Error(error);
@@ -40,12 +51,51 @@ export default class Application {
    *
    */
   public init = async (): Promise<void> => {
-    this.host = Fastify.fastify({
+    this.host = fastify({
       logger: {
         prettyPrint: true,
       },
       trustProxy: __prod__ ? 1 : 0,
     });
+
+    this.host.register(fastifyCors, { origin: true, credentials: true }); // TODO - Fix this for multiple targets.
+    this.host.register(fastifyCookie);
+
+    const redisStore = connectRedis(fastifySession as any);
+    const store = new redisStore({
+      client: (redis() as unknown) as RedisClient,
+    });
+
+    this.host.register(fastifySession, {
+      store,
+      cookieName: "qid",
+      secret: process.env.SECRET!,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        domain: __prod__ ? ".getscooped.in" : "",
+        secure: __prod__,
+        maxAge: 1000 * 60 * 60 * 24 * 7 * 365, // 7 years
+      },
+    });
+
+    this.host.decorateRequest("userId", "");
+
+    this.host.decorate(
+      "creatorAuth",
+      (request: FastifyRequest, reply: FastifyReply, done: any) => {
+        const id = request.session.creatorId;
+        if (!id) {
+          reply.status(401).send({
+            field: "Unauthorised",
+            message: "Unauthorised access for requested route.",
+          });
+          return;
+        }
+        request.userId = id;
+        done();
+      },
+    );
 
     this.host.register(require("./routes/creator"));
 
@@ -54,7 +104,7 @@ export default class Application {
       await this.host
         .listen(PORT, "0.0.0.0")
         .then((address) =>
-          console.log(`${console_prefix} 🚀 Launched! Listening on ${address}`),
+          console.log(`${console_prefix} Launched! Listening on ${address}`),
         );
     } catch (err) {
       this.host.log.error(err);
