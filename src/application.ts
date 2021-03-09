@@ -46,7 +46,7 @@ export default class Application {
   /*
    *
    * Method - Init
-   * @description Fastify & Mercurius initialisation.
+   * @description Fastify initialisation.
    * @return Promise<void>
    *
    */
@@ -98,6 +98,7 @@ export default class Application {
     );
 
     this.host.register(require("./routes/creator"));
+    this.host.register(require("./routes/profile"));
 
     try {
       const PORT = process.env.PORT || 4000;

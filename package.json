@@ -18,6 +18,7 @@
     "fastify-cookie": "^5.1.0",
     "fastify-cors": "^5.2.0",
     "fastify-plugin": "^3.0.0",
+    "fastify-rate-limit": "^5.4.1",
     "fastify-session": "^5.2.1",
     "instagram-private-api": "^1.43.4",
     "ioredis": "^4.23.0",

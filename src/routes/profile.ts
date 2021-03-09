@@ -2,6 +2,15 @@ import { FastifyInstance } from "fastify";
 import { Instagram } from "instagram";
 
 export default function (fastify: FastifyInstance, _: any, next: any): void {
+  /*
+   *
+   * Profile Linking
+   * /profile/link
+   * /profile/auth (if already linked)
+   * /profile/2fa - TODO: Fix for both auth & link
+   *
+   */
+
   fastify.post<{ Body: { username: string; password: string } }>(
     "/profile/link",
     {
@@ -18,23 +27,84 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
       preHandler: [fastify.creatorAuth],
     },
     async (request, reply) => {
-      const { username } = request.body;
+      const { username, password } = request.body;
 
       const client = new Instagram(username);
       const valid = await client.getAccountPk();
+      const profileInUse = await client.getProfileByCreator(request.userId);
 
-      if (valid) {
-        const auth = await client.authenticate(valid);
+      if (valid && !profileInUse) {
+        const auth = await client.authenticate(password);
 
         if (auth.status === "authenticated") {
+          const link = await client.linkAccount(request.userId);
+          if (link) {
+            reply.status(200).send({
+              message: "Profile linked.",
+            });
+            return;
+          }
         } else if (auth.status === "twoFactorSent") {
+          reply
+            .status(200)
+            .send({ message: "Two factor authentication required." });
+          return;
         }
 
-        reply.status(200).send({ valid: true });
+        reply.status(400).send({ message: auth.status });
         return;
       }
 
-      reply.status(400).send({ valid: false });
+      reply.status(400).send({ message: "Unable to link profile." });
+    },
+  );
+
+  fastify.post<{ Body: { username: string; password: string } }>(
+    "/profile/auth",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            username: { type: "string" },
+            password: { type: "string" },
+          },
+          required: ["username", "password"],
+        },
+      },
+      preHandler: [fastify.creatorAuth],
+    },
+    async (request, reply) => {
+      const { username, password } = request.body;
+
+      const client = new Instagram(username);
+      const profile = await client.getProfileByCreator(request.userId);
+
+      if (profile) {
+        if (profile.creatorId != request.userId) {
+          reply
+            .status(400)
+            .send({ message: "Cannot authenticate account not linked." });
+          return;
+        }
+
+        const auth = await client.authenticate(password);
+
+        if (auth.status === "authenticated") {
+          await client.saveSession();
+          reply.status(200).send({ message: "Authenticated." });
+          return;
+        } else if (auth.status === "twoFactorSent") {
+          reply
+            .status(200)
+            .send({ message: "Two factor authentication required." });
+          return;
+        }
+      }
+
+      reply
+        .status(200)
+        .send({ message: "Unable to authenticate. Check profile input." });
     },
   );
 

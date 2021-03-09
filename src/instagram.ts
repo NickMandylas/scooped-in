@@ -144,42 +144,36 @@ export class Instagram {
   };
 
   public authenticate = async (password: string) => {
-    const accountInUse = this.getProfileByPk(this.uuid!);
+    this.client.state.generateDevice(this.username);
 
-    if (!accountInUse) {
-      this.client.state.generateDevice(this.username);
-
-      return Bluebird.try(() =>
-        this.client.account.login(this.username, password),
-      )
-        .then(async () => {
-          return { status: "authenticated" };
-        })
-        .catch(IgLoginTwoFactorRequiredError, (err) => {
-          const twoFactor = JSON.stringify({
-            twoFactorIdentifier:
-              err.response.body.two_factor_info.two_factor_identifier,
-            state: {
-              deviceString: this.client.state.deviceString,
-              deviceId: this.client.state.deviceId,
-              uuid: this.client.state.uuid,
-              phoneId: this.client.state.phoneId,
-              adid: this.client.state.adid,
-              build: this.client.state.build,
-            },
-          });
-
-          redis().set(
-            `instagram-two-factor:${this.uuid}`,
-            twoFactor,
-            "ex",
-            60 * 60 * 24,
-          );
-
-          return { status: "twoFactorSent" };
+    return Bluebird.try(() =>
+      this.client.account.login(this.username, password),
+    )
+      .then(async () => {
+        return { status: "authenticated" };
+      })
+      .catch(IgLoginTwoFactorRequiredError, (err) => {
+        const twoFactor = JSON.stringify({
+          twoFactorIdentifier:
+            err.response.body.two_factor_info.two_factor_identifier,
+          state: {
+            deviceString: this.client.state.deviceString,
+            deviceId: this.client.state.deviceId,
+            uuid: this.client.state.uuid,
+            phoneId: this.client.state.phoneId,
+            adid: this.client.state.adid,
+            build: this.client.state.build,
+          },
         });
-    }
 
-    return { status: "accountInUse" };
+        redis().set(
+          `instagram-two-factor:${this.uuid}`,
+          twoFactor,
+          "ex",
+          60 * 60 * 24,
+        );
+
+        return { status: "twoFactorSent" };
+      });
   };
 }
