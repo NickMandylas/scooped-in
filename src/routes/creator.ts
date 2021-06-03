@@ -99,7 +99,7 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
 
         if (valid && creator.confirmed) {
           request.session.creatorId = creator.id;
-          reply.send({ hello: "world" });
+          reply.send({ id: creator.id, sessionStart: Date.now() });
           return;
         }
       }

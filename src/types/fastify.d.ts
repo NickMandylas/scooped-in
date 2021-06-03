@@ -4,9 +4,10 @@ declare module "fastify" {
   export interface FastifyInstance<
     HttpServer = Server,
     HttpRequest = IncomingMessage,
-    HttpResponse = ServerResponse
+    HttpResponse = ServerResponse,
   > {
     creatorAuth: any;
+    watcherAuth: any;
   }
 
   export interface FastifyRequest {

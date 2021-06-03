@@ -63,7 +63,7 @@ export default class Application {
 
     const redisStore = connectRedis(fastifySession as any);
     const store = new redisStore({
-      client: (redis() as unknown) as RedisClient,
+      client: redis() as unknown as RedisClient,
     });
 
     this.host.register(fastifySession, {
@@ -97,7 +97,24 @@ export default class Application {
       },
     );
 
+    this.host.decorate(
+      "watcherAuth",
+      (request: FastifyRequest, reply: FastifyReply, done: any) => {
+        const id = request.session.watcherId;
+        if (!id) {
+          reply.status(401).send({
+            field: "Unauthorised",
+            message: "Unauthorised access for requested route.",
+          });
+          return;
+        }
+        request.userId = id;
+        done();
+      },
+    );
+
     this.host.register(require("./routes/creator"));
+    this.host.register(require("./routes/watcher"));
     this.host.register(require("./routes/profile"));
 
     try {
