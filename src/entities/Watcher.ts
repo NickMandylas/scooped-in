@@ -32,6 +32,9 @@ export class Watcher {
   @Property({ type: "text", nullable: true, unique: true })
   instagramUUID: string;
 
+  @Property({ type: "text", nullable: true })
+  avatar: string;
+
   @Property({ type: "date" })
   createdAt = new Date();
 

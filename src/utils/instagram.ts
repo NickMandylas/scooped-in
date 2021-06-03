@@ -6,7 +6,7 @@ import {
   IgLoginTwoFactorRequiredError,
 } from "instagram-private-api";
 import redis from "utils/redis";
-import { app } from ".";
+import { app } from "..";
 
 type SessionType = {
   cookies: string;
@@ -31,14 +31,20 @@ export class Instagram {
     this.uuid = null;
   }
 
-  public getAccountPk = async (): Promise<string | null> => {
+  public getAccountInfo = async (): Promise<{
+    id: string;
+    avatar: string;
+  } | null> => {
     try {
-      const res = await axios
-        .get(`https://www.instagram.com/${this.username}/?__a=1`)
+      const res: { id: string; avatar: string } = await axios
+        .get(`https://www.instagram.com/${this.username}/channel/?__a=1`)
         .then((response) => response.data)
         .then((data) => {
           this.uuid = data.graphql.user.id;
-          return data.graphql.user.id;
+          return {
+            id: data.graphql.user.id,
+            avatar: data.graphql.user.profile_pic_url,
+          };
         });
       return res;
     } catch (err) {

@@ -1,7 +1,7 @@
 import ormConfig from "./orm.config";
 import { Connection, IDatabaseDriver, MikroORM } from "@mikro-orm/core";
 import { IncomingMessage, Server, ServerResponse } from "http";
-import { console_prefix, __prod__ } from "./constants";
+import { console_prefix, __prod__ } from "./utils/constants";
 import fastifyCookie from "fastify-cookie";
 import fastifyCors from "fastify-cors";
 import fastifySession from "fastify-session";

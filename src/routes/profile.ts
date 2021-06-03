@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { Instagram } from "instagram";
+import { Instagram } from "utils/instagram";
 
 export default function (fastify: FastifyInstance, _: any, next: any): void {
   /*
@@ -30,7 +30,7 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
       const { username, password } = request.body;
 
       const client = new Instagram(username);
-      const valid = await client.getAccountPk();
+      const valid = await client.getAccountInfo();
       const profileInUse = await client.getProfileByCreator(request.userId);
 
       if (valid && !profileInUse) {
@@ -127,7 +127,7 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
       const { username, token } = request.body;
 
       const client = new Instagram(username);
-      const valid = await client.getAccountPk();
+      const valid = await client.getAccountInfo();
 
       if (valid) {
         const res = await client.twoFactorVerify(token);

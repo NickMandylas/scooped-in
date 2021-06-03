@@ -1,9 +1,9 @@
 import argon2 from "argon2";
-import { __prod__ } from "../constants";
+import { __prod__ } from "../utils/constants";
 import { FastifyInstance } from "fastify";
 import { app } from "..";
 import { Watcher } from "entities";
-import { Instagram } from "instagram";
+import { Instagram } from "utils/instagram";
 
 export default function (fastify: FastifyInstance, _: any, next: any): void {
   /*
@@ -175,6 +175,7 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
   }>(
     "/creator/link",
     {
+      preHandler: [fastify.watcherAuth],
       schema: {
         body: {
           type: "object",
@@ -194,14 +195,16 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
 
       if (watcher) {
         const client = new Instagram(username);
-        const uuid = await client.getAccountPk();
+        const account = await client.getAccountInfo();
 
-        if (uuid) {
-          watcher.instagramUUID = uuid;
+        if (account) {
+          watcher.instagramUUID = account.id;
+          watcher.avatar = account.avatar;
           await em.persistAndFlush(watcher);
           reply.status(200).send({
             linked: true,
-            pk: uuid,
+            pk: account.id,
+            avatar: account.avatar,
           });
         }
 

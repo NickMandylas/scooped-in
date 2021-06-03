@@ -1,5 +1,5 @@
 import argon2 from "argon2";
-import { __prod__ } from "../constants";
+import { __prod__ } from "../utils/constants";
 import { Creator } from "entities";
 import { FastifyInstance } from "fastify";
 import { app } from "..";
