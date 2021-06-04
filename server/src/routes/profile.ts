@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { Instagram } from "utils/instagram";
+import { Instagram } from "services/instagram";
 
 export default function (fastify: FastifyInstance, _: any, next: any): void {
   /*

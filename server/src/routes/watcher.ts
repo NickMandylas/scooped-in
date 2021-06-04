@@ -3,7 +3,7 @@ import { __prod__ } from "../utils/constants";
 import { FastifyInstance } from "fastify";
 import { app } from "..";
 import { Watcher } from "entities";
-import { Instagram } from "utils/instagram";
+import { Instagram } from "services/instagram";
 
 export default function (fastify: FastifyInstance, _: any, next: any): void {
   /*

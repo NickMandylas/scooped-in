@@ -58,7 +58,11 @@ export default class Application {
       trustProxy: __prod__ ? 1 : 0,
     });
 
-    this.host.register(fastifyCors, { origin: true, credentials: true }); // TODO - Fix this for multiple targets.
+    this.host.register(fastifyCors, {
+      origin: ["http://localhost:4000"],
+      credentials: true,
+    });
+
     this.host.register(fastifyCookie);
 
     const redisStore = connectRedis(fastifySession as any);
