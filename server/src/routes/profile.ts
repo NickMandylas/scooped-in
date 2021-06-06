@@ -98,6 +98,7 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
           reply
             .status(200)
             .send({ message: "Two factor authentication required." });
+
           return;
         }
       }

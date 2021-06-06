@@ -119,52 +119,6 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
   );
 
   /*
-   * WATCHER - POST: Link Instagram
-   */
-
-  fastify.post<{
-    Body: {
-      email: string;
-      password: string;
-    };
-  }>(
-    "/watcher/link",
-    {
-      schema: {
-        body: {
-          type: "object",
-          properties: {
-            email: { type: "string", format: "email" },
-            password: { type: "string", format: "regex" },
-          },
-          required: ["email", "password"],
-        },
-      },
-    },
-    async (request, reply) => {
-      const em = app.orm.em;
-      const { email, password } = request.body;
-
-      const watcher = await em.findOne(Watcher, { email });
-
-      if (watcher) {
-        const valid = await argon2.verify(watcher.password, password);
-
-        if (valid && watcher.confirmed) {
-          request.session.creatorId = watcher.id;
-          reply.send({ id: watcher.id, sessionStart: Date.now() });
-          return;
-        }
-      }
-
-      reply.status(400).send({
-        field: "emailOrPassword",
-        message: "Email or password provided is incorrect.",
-      });
-    },
-  );
-
-  /*
    * CREATOR - POST: Link Instagram Endpoint
    */
 
@@ -173,7 +127,7 @@ export default function (fastify: FastifyInstance, _: any, next: any): void {
       username: string;
     };
   }>(
-    "/creator/link",
+    "/watcher/link",
     {
       preHandler: [fastify.watcherAuth],
       schema: {

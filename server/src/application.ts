@@ -59,7 +59,7 @@ export default class Application {
     });
 
     this.host.register(fastifyCors, {
-      origin: ["http://localhost:4000"],
+      origin: ["http://192.168.114.163:3000"],
       credentials: true,
     });
 
